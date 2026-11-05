@@ -5,8 +5,8 @@
 // @description  Professional Quran Media Player with Audio, Ayah Playback, Reading and Sound Settings
 // @homepage     https://github.com/examlycbt-offline/quran-companion
 // @supportURL   https://github.com/examlycbt-offline/quran-companion/issues
-// @downloadURL  https://githubusercontent.com
-// @updateURL    https://githubusercontent.com
+// @downloadURL  https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.user.js
+// @updateURL    https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.user.js
 // @match        https://www.dawateislami.net/quran/surah-*/translation-*
 // @match        https://gemini.google.com/*
 // @run-at       document-idle

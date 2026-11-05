@@ -16,12 +16,34 @@ translation pages.
 
 ## Installation
 
-1. Install the Tampermonkey browser extension.
-2. In Tampermonkey, create a new userscript and replace its contents with
-   `quran-companion.js`, then save it.
-3. Open or reload a supported Dawat-e-Islami Surah translation page.
-4. If prompted, allow Tampermonkey to run on both the Dawat-e-Islami and Gemini
-   sites. Allow popups if you want to use research.
+Install Tampermonkey first, then click the install badge:
+
+[![Install with Tampermonkey](https://img.shields.io/badge/Tampermonkey-Install%20Quran%20Companion-green?logo=tampermonkey)](https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.user.js)
+
+Tampermonkey should open an installation page for **Quran Companion**. Review
+the script and choose **Install**. Then open or reload a supported Dawat-e-Islami
+Surah translation page. Allow popups if you want to use Ayah research.
+
+If clicking the badge displays the source code instead, install it manually:
+
+1. Open Tampermonkey's dashboard and choose **Create a new script**.
+2. Replace the editor contents with the source from
+   [`quran-companion.user.js`](./quran-companion.user.js).
+3. Save, then open or reload a supported Surah translation page.
+
+### Publishing and sharing
+
+The install badge and script metadata use the `main` branch of this GitHub
+repository. To share the installer with other people, make the repository
+public, commit and push the userscript and README to `main`, and share this
+README URL:
+
+`https://github.com/examlycbt-offline/quran-companion`
+
+The badge downloads the raw `.user.js` file, which Tampermonkey can recognize
+and offer to install. The `@downloadURL` and `@updateURL` metadata point to that
+same file so Tampermonkey can check for future updates. After publishing a new
+version, update `@version` in the userscript and push the change to `main`.
 
 ## Using the player
 
