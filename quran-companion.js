@@ -3,6 +3,10 @@
 // @namespace    https://www.dawateislami.net/
 // @version      1.0.0
 // @description  Professional Quran Media Player with Audio, Ayah Playback, Reading and Sound Settings
+// @homepage     https://github.com/examlycbt-offline/quran-companion
+// @supportURL   https://github.com/examlycbt-offline/quran-companion/issues
+// @downloadURL  https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.js
+// @updateURL    https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.js
 // @match        https://www.dawateislami.net/quran/surah-*/translation-*
 // @match        https://gemini.google.com/*
 // @run-at       document-idle
