@@ -1,5 +1,6 @@
 // ==UserScript==
 // @name         Quran Companion - Dawat-e-Islami
+// @author       AyahByte
 // @namespace    https://www.dawateislami.net/
 // @version      1.0.0
 // @description  Professional Quran Media Player with Audio, Ayah Playback, Reading and Sound Settings
