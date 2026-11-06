@@ -2,7 +2,7 @@
 // @name         Quran Companion - Dawat-e-Islami
 // @author       AyahByte
 // @namespace    https://www.dawateislami.net/
-// @version      1.0.0
+// @version      1.0.1
 // @description  Professional Quran Media Player with Audio, Ayah Playback, Reading and Sound Settings
 // @homepage     https://github.com/examlycbt-offline/quran-companion
 // @supportURL   https://github.com/examlycbt-offline/quran-companion/issues
