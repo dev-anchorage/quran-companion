@@ -263,3 +263,12 @@ After publishing a release, update `@version` and the **Current version** and
 release notes in this README, then push both files to `main`.
 
 Repository: <https://github.com/examlycbt-offline/quran-companion>
+## Author
+
+* **Nayab Ak** - *Lead Developer* - [@examlycbt-offline](https://github.com)
+
+## Acknowledgements
+
+Thank you to everyone using this Tampermonkey script! Your support keeps this project going. 
+
+A special thanks to users who take the time to report bugs, suggest features, and help improve the script for the community. If you encounter any issues or have feedback, please feel free to open an issue in the repository.
