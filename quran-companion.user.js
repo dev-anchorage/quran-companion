@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Quran Companion - Dawat-e-Islami
-// @author       AyahByte
+// @author       dev-anchorage
 // @namespace    https://www.dawateislami.net/
 // @version      1.1.0
 // @description  Quran media player with Bismillah Ayah 0 playback, reading tools, sound controls, and Gemini Ayah research
-// @homepage     https://github.com/examlycbt-offline/quran-companion
-// @supportURL   https://github.com/examlycbt-offline/quran-companion/issues
-// @downloadURL  https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.user.js
-// @updateURL    https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.user.js
+// @homepage     https://github.com/dev-anchorage/quran-companion
+// @supportURL   https://github.com/dev-anchorage/quran-companion/issues
+// @downloadURL  https://raw.githubusercontent.com/dev-anchorage/quran-companion/main/quran-companion.user.js
+// @updateURL    https://raw.githubusercontent.com/dev-anchorage/quran-companion/main/quran-companion.user.js
 // @match        https://www.dawateislami.net/quran/surah-*/translation-*
 // @match        https://gemini.google.com/*
 // @run-at       document-idle
