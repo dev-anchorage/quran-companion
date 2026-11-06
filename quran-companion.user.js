@@ -2,8 +2,8 @@
 // @name         Quran Companion - Dawat-e-Islami
 // @author       AyahByte
 // @namespace    https://www.dawateislami.net/
-// @version      1.0.1
-// @description  Professional Quran Media Player with Audio, Ayah Playback, Reading and Sound Settings
+// @version      1.1.0
+// @description  Quran media player with Bismillah Ayah 0 playback, reading tools, sound controls, and Gemini Ayah research
 // @homepage     https://github.com/examlycbt-offline/quran-companion
 // @supportURL   https://github.com/examlycbt-offline/quran-companion/issues
 // @downloadURL  https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.user.js
@@ -1868,7 +1868,7 @@
   .qap-research-dialog-card {
     display: flex;
     flex-direction: column;
-    width: min(940px, 100%);
+    width: min(80vw, 1280px);
     max-height: min(88vh, 980px);
     overflow: hidden;
     color: #edf5ef;
@@ -2113,8 +2113,8 @@
   .qap-research-content td {
     padding: 9px 11px;
     border: 1px solid rgba(255,255,255,.18);
-    text-align: start;
-    vertical-align: top;
+    text-align: center;
+    vertical-align: middle;
   }
 
   .qap-research-content th {
@@ -2122,11 +2122,47 @@
     background: rgba(246,196,83,.1);
   }
 
+  .qap-research-content tr.qap-research-language-start > td {
+    border-bottom: 0;
+  }
+
+  .qap-research-content tr.qap-research-language-continuation > td {
+    border-top: 0;
+  }
+
   .qap-research-content blockquote {
     padding: 10px 15px;
     color: #ffe7b0;
     background: rgba(246,196,83,.08);
     border-inline-start: 3px solid #f6c453;
+  }
+
+  .qap-research-content .qap-research-note {
+    margin: .25em 0 1.25em;
+    color: #c9d8ce;
+    font-size: .92em;
+    font-style: italic;
+  }
+
+  .qap-research-content .qap-research-ai-notice {
+    margin-top: 1.2em;
+    padding: 14px 16px;
+    color: #ffe1dc;
+    background: rgba(190,55,47,.2);
+    border: 1px solid rgba(255,133,133,.62);
+    border-inline-start: 4px solid #ff8585;
+    border-radius: 9px;
+    box-shadow: 0 5px 16px rgba(0,0,0,.18);
+  }
+
+  .qap-research-content .qap-research-ai-notice strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #ffaaa1;
+  }
+
+  .qap-research-content .qap-research-ai-notice p {
+    margin: 0;
   }
 
   .qap-research-content code {
@@ -2137,7 +2173,7 @@
 
   @media (max-width: 600px) {
     .qap-research-dialog { padding: 10px; }
-    .qap-research-dialog-card { max-height: 94vh; border-radius: 13px; }
+    .qap-research-dialog-card { width: 96vw; max-height: 94vh; border-radius: 13px; }
     .qap-research-dialog-header { padding: 14px 16px; }
     .qap-research-dialog-body { padding: 17px; }
     .qap-research-content { font-size: 14px; }
@@ -5318,7 +5354,7 @@
     const allowedTags = new Set([
       "ARTICLE", "SECTION", "DIV", "SPAN", "H1", "H2", "H3", "H4", "H5", "H6",
       "P", "BR", "HR", "STRONG", "B", "EM", "I", "U", "S", "UL", "OL", "LI",
-      "BLOCKQUOTE", "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CODE",
+      "ASIDE", "BLOCKQUOTE", "TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TH", "TD", "CODE",
       "PRE", "A", "SUP", "SUB",
     ]);
     const discardedTags = new Set([
@@ -5327,6 +5363,12 @@
     ]);
     const safeAttributes = new Set([
       "dir", "lang", "colspan", "rowspan", "scope", "start",
+    ]);
+    const allowedResearchClasses = new Set([
+      "qap-research-note",
+      "qap-research-ai-notice",
+      "qap-research-language-start",
+      "qap-research-language-continuation",
     ]);
 
     const cleanNode = (node) => {
@@ -5345,6 +5387,7 @@
         [...child.attributes].forEach((attribute) => {
           const name = attribute.name.toLowerCase();
           if (safeAttributes.has(name)) return;
+          if (name === "class" && allowedResearchClasses.has(attribute.value.trim())) return;
           if (child.tagName === "A" && name === "href") {
             try {
               const url = new URL(attribute.value, location.href);
@@ -5454,14 +5497,24 @@
       "",
       "LANGUAGE AND PRESENTATION",
       "- Support the selected one or two languages and keep each language's content separate. Do not mix languages unnecessarily.",
+      "- Localize all reader-facing content into each requested language, not just the main prose: section headings, subheadings, table titles, column headers, field/row labels, notes, captions, units, and explanatory text. Do not leave English labels in content written in another language; for shared labels in a multilingual table, provide the label in each applicable language.",
+      "- Localize displayed numerals and number formatting to the customary form for each requested language, including section numbering, Ayah/Juz/Ruku references, counts, dates, and table values, while preserving their numeric meaning. Keep the original Quranic Arabic text exactly as provided; do not translate or alter it.",
       "- Use clear headings, tables for structured information, bullets for explanations, and proper right-to-left formatting for Arabic. Keep the tone respectful and avoid irrelevant repetition.",
-      '- At the very end, include exactly once: "This is an AI-generated response based on the available information and cited sources. Although care has been taken to provide accurate information, it may contain errors or inaccuracies. Please verify important Quranic information, translations and religious explanations with the original sources and qualified Islamic scholars. Do not consider this response absolutely correct or authoritative."',
+      '- At the very end, include this disclaimer once in each requested language, faithfully translated while preserving its full meaning: "This is an AI-generated response based on the available information and cited sources. Although care has been taken to provide accurate information, it may contain errors or inaccuracies. Please verify important Quranic information, translations and religious explanations with the original sources and qualified Islamic scholars. Do not consider this response absolutely correct or authoritative."',
     ].join("\n");
 
     const outputInstructions = showInApp
       ? [
           "OUTPUT FORMAT — IN-APP RESEARCH POPUP",
           "Return a complete HTML fragment only; do not use Markdown fences or Markdown syntax. Use semantic HTML such as headings, paragraphs, lists, blockquotes and tables. Do not include scripts, iframes, external assets, or a full document wrapper.",
+          "Organize every enabled research section in this order: Ayah Details, Translation, Tafseer, Word-by-Word Meaning. Number the <h2> headings in order, localizing each heading and its numeral into the applicable requested language. Omit disabled sections without renumbering the remaining headings. Separate enabled sections with a semantic <hr>.",
+          "For Translation and Tafseer, make each section heading show the selected languages in order, for example 'Translation — Urdu / English' or 'Tafseer — Urdu / English', with the heading and language names localized. Add a clear <h3> subheading for each requested language and put that language's complete content in its own <blockquote>. Provide Tafseer separately in every requested language, just as for Translation; faithfully translate the verified source when needed and identify when content is translated or AI-generated.",
+          "Every Ayah Details and Word-by-Word Meaning table must have exactly three columns in this order: Field/Word, Value/Meaning, Language. Do not create additional language columns. Localize each column heading into every selected language and place the heading translations on separate lines in the same header cell, in selected-language order. In the Language column heading, also show the ordered mapping, such as 'Language 1 / Language 2: Urdu / English' (localized), so the row order is clear; each body row's Language cell then contains only that row's actual language name.",
+          "In Ayah Details, create one data group per detail and one physical row per selected language. In each row, translate the field label in column one and put its value in column two using only that row's language. Put that row's language name only in column three. Do not merge cells with rowspan and do not put multiple languages or language names in one row.",
+          "In Word-by-Word Meaning, create one data group per Arabic word and one physical row per selected language. Column one contains the original Arabic word and transliteration; column two contains only the meaning in that row's language; column three contains only that row's language name. Do not repeat another language's translation or language name in the row. With two selected languages, make exactly two consecutive rows per word, in selected-language order; with one language, make one row. Do not merge cells with rowspan. Preserve the Arabic text, and do not omit repeated words or combine separate words.",
+          "Mark the first row in each two-language group with class=\"qap-research-language-start\" and the next row with class=\"qap-research-language-continuation\". Remove the border between the two rows across all three columns so they read as one visual group, while retaining borders between separate groups. Center every table header and cell horizontally and vertically. Do not add nested tables or extra columns.",
+          "Do not put explanatory notes, source details, qualifications, or parenthetical remarks inside a table or a translation/Tafseer blockquote. If a substantial clarification is needed, add one concise <p class=\"qap-research-note\"><em>Note: …</em></p> at the end of that section, outside all tables and blockquotes. Include notes only once per section, not once per language; omit unnecessary notes.",
+          "After all enabled sections and their notes, add an <hr> immediately before the final AI accuracy disclaimer. Put the disclaimer translations inside <aside class=\"qap-research-ai-notice\"><strong>…</strong><p>…</p></aside>; translate the label and disclaimer into each requested language, with one paragraph per language. Do not use a blockquote for this notice and do not add content after it except the required completion marker.",
           "The host popup applies its own CSS. Design the content to complement a refined Quran Companion popup: deep forest-green surfaces, warm gold headings and accents, readable light text, restrained borders, clear spacing, and responsive tables. Use semantic elements rather than inline styles or a <style> block; preserve Arabic with dir=\"rtl\" and lang=\"ar\".",
           `Wrap the complete answer in these exact HTML comments, each on its own line: ${RESEARCH_START_MARKER} immediately before the first answer element, and ${RESEARCH_COMPLETE_MARKER} immediately after the final answer element and required accuracy disclaimer. These boundary markers are required; do not omit, alter, or place them inside another element.`,
         ]
