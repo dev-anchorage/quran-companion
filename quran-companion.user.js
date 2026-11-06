@@ -85,6 +85,7 @@
     };
 
     const reportFailure = async (message, cause = null) => {
+      const friendlyMessage = "AI research could not complete after multiple attempts. Please try again.";
       if (!resultKey) {
         console.error("Quran Companion research worker failed:", {
           stage: workerStage,
@@ -98,7 +99,8 @@
 
       try {
         await GM_setValue(resultKey, {
-          error: message,
+          status: "error",
+          message: friendlyMessage,
           stage: workerStage,
           stack: cause?.stack || new Error(message).stack,
         });
@@ -110,6 +112,77 @@
           error,
         });
       }
+    };
+
+    const clearBlockingOverlays = () => {
+      const overlaySelectors = [
+        '[role="dialog"]',
+        '[aria-modal="true"]',
+        '.modal',
+        '.overlay',
+        '.mat-dialog-container',
+        '.mat-focus-indicator',
+        '.sign-in-dialog',
+        '.signin-dialog',
+        '.login-dialog',
+        '.gmat-dialog',
+      ];
+
+      overlaySelectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((element) => {
+          if (!element || !element.parentNode) return;
+          const text = (element.textContent || "").trim();
+          const isOverlayCandidate = text.length === 0 || /sign in|log in|login|continue to|google account|welcome/i.test(text);
+          if (isOverlayCandidate && element !== document.body) {
+            element.remove();
+          }
+        });
+      });
+    };
+
+    const isGeminiSignInPromptVisible = () => {
+      const signInElements = document.querySelectorAll('.mat-focus-indicator');
+      for (const element of signInElements) {
+        const text = (element.textContent || "") + " " + (element.innerText || "");
+        if (/(sign in|log in|login|continue to|google account)/i.test(text)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const resetGeminiSessionAndReload = async () => {
+      try {
+        document.cookie.split(';').forEach((cookie) => {
+          const name = cookie.split('=')[0].trim();
+          if (!name) return;
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.google.com`;
+        });
+      } catch (error) {
+        console.warn("Quran Companion could not clear Gemini cookies:", error);
+      }
+
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (error) {
+        console.warn("Quran Companion could not clear Gemini storage:", error);
+      }
+
+      try {
+        if (window.indexedDB) {
+          indexedDB.databases?.().then((databases) => {
+            databases.forEach((db) => {
+              if (db.name) indexedDB.deleteDatabase(db.name);
+            });
+          }).catch(() => {});
+        }
+      } catch (error) {
+        console.warn("Quran Companion could not clear Gemini indexedDB:", error);
+      }
+
+      location.reload();
     };
 
     try {
@@ -150,6 +223,11 @@
       ];
       let inputBox = null;
       for (let attempt = 0; attempt < 120 && !inputBox; attempt++) {
+        clearBlockingOverlays();
+        if (isGeminiSignInPromptVisible()) {
+          await resetGeminiSessionAndReload();
+          return;
+        }
         inputBox = inputSelectors.map((selector) => document.querySelector(selector)).find(Boolean);
         if (!inputBox) {
           if (returnHtml && attempt > 0 && attempt % 20 === 0) {
@@ -159,7 +237,15 @@
         }
       }
       if (!inputBox) {
-        throw new Error("Gemini's prompt box was not found. Check that Gemini finished loading.");
+        const blockingPromptMessage = "Gemini is currently blocked by a sign-in, login, or overlay screen. Please allow access to gemini.google.com and try again.";
+        if (returnHtml && resultKey) {
+          await GM_setValue(resultKey, {
+            status: "error",
+            stage: "prompt-box-not-found",
+            message: blockingPromptMessage,
+          });
+        }
+        throw new Error(blockingPromptMessage);
       }
 
       const responseSelectors = [
@@ -288,11 +374,12 @@
         return;
       }
 
+      const MAX_RESEARCH_RETRIES = 3;
       let responseCount = previousResponseCount;
       let attempt = 0;
       let prompt = request.prompt;
 
-      while (true) {
+      while (attempt < MAX_RESEARCH_RETRIES) {
         await sendPrompt(prompt);
         const completion = await waitForGeminiCompletion(responseCount);
         const markedAnswer = completion.response
@@ -310,6 +397,27 @@
         }
 
         attempt++;
+        if (attempt >= MAX_RESEARCH_RETRIES) {
+          const limitMessage =
+            "AI research could not complete after multiple attempts. Please try again.";
+          if (resultKey) {
+            workerStage = "retry-limit-reached";
+            await GM_setValue(resultKey, {
+              status: "error",
+              stage: workerStage,
+              message: limitMessage,
+            });
+          }
+          try {
+            if (window && !window.closed) {
+              window.close();
+            }
+          } catch (error) {
+            console.warn("Quran Companion could not close the Gemini research window:", error);
+          }
+          throw new Error(limitMessage);
+        }
+
         if (resultKey) {
           workerStage = "retrying-answer";
           await GM_setValue(resultKey, {
@@ -410,7 +518,7 @@
   // 3. PLAYER STATE AND AUDIO CONFIGURATION
   // ---------------------------------------------------------------------------
 
-  let ayah = 1;
+  let ayah = 0;
 
   let running = false;
   let expanded = false;
@@ -447,9 +555,9 @@
   // AYAH RANGE PLAYBACK SETTINGS
   // =========================================
 
-  let rangeStart = 1;
+  let rangeStart = 0;
 
-  let rangeEnd = 1;
+  let rangeEnd = 0;
 
   let rangeRepeat = 1;
 
@@ -498,9 +606,11 @@
     const audioBase =
       "https://data2.dawateislami.net/static/images/main-website/quran-arabic-audios/";
 
-    const folder = String(surahId).padStart(3, "0");
+    const normalized = Number(n);
+    const isBismillahAyah = normalized === 0;
 
-    const ayahNumber = String(n).padStart(3, "0");
+    const folder = isBismillahAyah ? "001" : String(surahId).padStart(3, "0");
+    const ayahNumber = isBismillahAyah ? "000" : String(normalized).padStart(3, "0");
 
     const code = language === "arabic" ? qari : urduTranslation;
 
@@ -1922,6 +2032,41 @@
     overflow-wrap: anywhere;
   }
 
+  .qap-research-retry {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-width: 144px;
+    margin: 16px auto 0;
+    padding: 10px 18px;
+    color: #123b2d;
+    background: linear-gradient(180deg, #f8d77e, #f2be4d);
+    border: 1px solid rgba(246,196,83,.7);
+    border-radius: 10px;
+    font: 700 13px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: .02em;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(0,0,0,.18);
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  }
+
+  .qap-research-retry:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(0,0,0,.22);
+    filter: brightness(1.02);
+  }
+
+  .qap-research-retry:focus-visible {
+    outline: 2px solid #ffe5a1;
+    outline-offset: 2px;
+  }
+
+  .qap-research-retry:disabled {
+    opacity: .7;
+    cursor: not-allowed;
+  }
+
   .qap-research-content {
     color: #e8f1eb;
     font-size: 15px;
@@ -2190,7 +2335,7 @@
     <div class="qap-muted qap-now-playing">NOW PLAYING</div>
 
     <div class="qap-ayah-number" id="qap-ayah">
-        Ayah 1 of ${totalAyahs}
+        Bismillah
     </div>
 
   </div>
@@ -3409,16 +3554,16 @@
   const rangeStartSelect = $("qap-range-start");
   const rangeEndSelect = $("qap-range-end");
 
-  for (let i = 1; i <= totalAyahs; i++) {
+  for (let i = 0; i <= totalAyahs; i++) {
     const startOption = document.createElement("option");
     startOption.value = i;
-    startOption.textContent = "Ayah " + i;
+    startOption.textContent = i === 0 ? "Bismillah" : "Ayah " + i;
 
     rangeStartSelect.appendChild(startOption);
 
     const endOption = document.createElement("option");
     endOption.value = i;
-    endOption.textContent = "Ayah " + i;
+    endOption.textContent = i === 0 ? "Bismillah" : "Ayah " + i;
 
     rangeEndSelect.appendChild(endOption);
   }
@@ -3514,16 +3659,33 @@
     return !destroyed && document.body.contains(panel);
   }
 
+  function getAyahLabel(n) {
+    if (n === 0) return "Bismillah";
+    return "Ayah " + n;
+  }
+
   // Locate the site's container for a given Ayah number.
 
   function findBox(n) {
-    const marker = document.querySelector(
-      '.tolTopstyle[data-surah-id="' +
-        surahId +
-        '"][data-ayat-number="' +
-        n +
-        '"]',
-    );
+    const selector =
+      '.tolTopstyle[data-surah-id="' + surahId + '"][data-ayat-number="' + n + '"]';
+    const marker = document.querySelector(selector);
+
+    if (!marker && n === 0) {
+      const bismillahFallback = Array.from(
+        document.querySelectorAll(
+          '.tolTopstyle[data-surah-id="' + surahId + '"]',
+        ),
+      ).find((element) => {
+        const value = element.getAttribute("data-ayat-number");
+        const text = (element.textContent || "").trim();
+        return value === "0" || /bismi|بسم|بِسْم/i.test(text);
+      });
+
+      if (bismillahFallback) {
+        return bismillahFallback.closest(".ayahTranslateBoxDiv");
+      }
+    }
 
     if (!marker) return null;
 
@@ -3557,7 +3719,7 @@
 
     const box = findBox(number);
     if (!box) {
-      showError("Ayah " + number + " could not be located for Hifz Mode.");
+      showError(getAyahLabel(number) + " could not be located for Hifz Mode.");
       return false;
     }
 
@@ -3569,7 +3731,7 @@
     const targets = elements.filter((element) => element?.textContent.trim());
 
     if (!targets.length) {
-      showError("Ayah " + number + " text could not be found for Hifz Mode.");
+      showError(getAyahLabel(number) + " text could not be found for Hifz Mode.");
       return false;
     }
 
@@ -3613,7 +3775,7 @@
     const box = findBox(n);
 
     if (!box) {
-      showError("Ayah " + n + " could not be located on the page.");
+      showError(getAyahLabel(n) + " could not be located on the page.");
 
       return false;
     }
@@ -3622,7 +3784,7 @@
 
     if (!elements.length) {
       showError(
-        "Ayah " + n + " was found, but its text could not be highlighted.",
+        getAyahLabel(n) + " was found, but its text could not be highlighted.",
       );
 
       return false;
@@ -4031,7 +4193,7 @@
     removeAudioEvents();
 
     showStatus(
-      "Loading " + (language === "arabic" ? "Arabic" : "Urdu") + " · Ayah " + n,
+      "Loading " + (language === "arabic" ? "Arabic" : "Urdu") + " · " + getAyahLabel(n),
     );
 
     let playbackStarted = false;
@@ -4078,8 +4240,8 @@
       showStatus(
         "Playing " +
           (language === "arabic" ? "Arabic" : "Urdu") +
-          " · Ayah " +
-          n,
+          " · " +
+          getAyahLabel(n),
       );
 
       updatePlayButton();
@@ -4127,9 +4289,9 @@
 
             showStatus(
               rangeRepeat === 0
-                ? "Repeating Ayah " + n + " · Unlimited"
-                : "Repeating Ayah " +
-                    n +
+                ? "Repeating " + getAyahLabel(n) + " · Unlimited"
+                : "Repeating " +
+                    getAyahLabel(n) +
                     " · " +
                     (rangeAyahRepeatCount + 1) +
                     " / " +
@@ -4283,7 +4445,7 @@
       return;
     }
 
-    if (n < 1) n = 1;
+    if (n < 0) n = 0;
 
     ayah = n;
 
@@ -4292,7 +4454,7 @@
     trackQueue = getSelectedTracks();
     trackIndex = 0;
 
-    $("qap-ayah").textContent = "Ayah " + n + " of " + totalAyahs;
+    $("qap-ayah").textContent = n === 0 ? "Bismillah" : "Ayah " + n + " of " + totalAyahs;
 
     $("qap-current").textContent = "00:00";
     $("qap-duration").textContent = "00:00";
@@ -4412,7 +4574,7 @@
   function jump(n) {
     n = Number(n);
 
-    if (!Number.isInteger(n) || n < 1 || n > totalAyahs) {
+    if (!Number.isInteger(n) || n < 0 || n > totalAyahs) {
       showError("Invalid Ayah number.");
       return;
     }
@@ -4461,13 +4623,13 @@
     if (
       !Number.isInteger(start) ||
       !Number.isInteger(end) ||
-      start < 1 ||
-      end < 1 ||
+      start < 0 ||
+      end < 0 ||
       end > totalAyahs ||
       start > end
     ) {
       showError(
-        "Invalid Ayah range. End Ayah must be equal to or greater than Start Ayah.",
+        "Invalid Ayah range. Ayah numbers must be between 0 and " + totalAyahs + ".",
       );
 
       return;
@@ -4539,8 +4701,8 @@
     rangeRepeatCount = 0;
     rangeAyahRepeatCount = 0;
 
-    rangeStart = 1;
-    rangeEnd = 1;
+    rangeStart = 0;
+    rangeEnd = 0;
     rangeRepeat = 1;
     rangeRepeatMode = "range";
 
@@ -4587,14 +4749,14 @@
     $("qap-hifz-mode").checked = false;
     $("qap-hifz-reveal-seconds").value = "5";
 
-    $("qap-range-start").value = "1";
+    $("qap-range-start").value = "0";
     updateEndAyahOptions();
-    $("qap-range-end").value = "1";
+    $("qap-range-end").value = "0";
     $("qap-range-repeat").value = "1";
     $("qap-repeat-mode").value = "range";
 
     // Reset Ayah.
-    ayah = 1;
+    ayah = 0;
 
     currentTrack = "arabic";
     trackQueue = [];
@@ -4605,7 +4767,7 @@
     clearRangeBoundary();
 
     // Reset player display.
-    $("qap-ayah").textContent = "Ayah 1 of " + totalAyahs;
+    $("qap-ayah").textContent = "Bismillah";
     $("qap-current").textContent = "00:00";
     $("qap-duration").textContent = "00:00";
     $("qap-progress").style.width = "0%";
@@ -4656,7 +4818,7 @@
   };
 
   $("qap-prev").onclick = () => {
-    if (ayah <= 1) {
+    if (ayah <= 0) {
       showError("You are already at the first Ayah.");
 
       return;
@@ -5053,9 +5215,10 @@
           <span class="qap-research-spinner" aria-hidden="true"></span>
           <p class="qap-research-loading-label">Preparing your Ayah research…</p>
           <p class="qap-research-progress-detail" id="qap-research-progress-detail">Preparing to connect to Gemini…</p>
-          <p class="qap-research-wait-note">Research will continue retrying until a complete answer is received. Close this popup to stop the search. Avoid closing this tab while research is running.</p>
+          <p class="qap-research-wait-note">Research will retry a few times if Gemini returns an incomplete answer. Close this popup to stop the search. Avoid closing this tab while research is running.</p>
         </div>
         <div class="qap-research-error" role="alert" hidden></div>
+        <button class="qap-research-retry" type="button" hidden>Try again</button>
         <article class="qap-research-content" hidden></article>
       </div>
     </section>
@@ -5066,6 +5229,7 @@
   const researchLoading = researchDialog.querySelector(".qap-research-loading");
   const researchProgressDetail = researchDialog.querySelector("#qap-research-progress-detail");
   const researchError = researchDialog.querySelector(".qap-research-error");
+  const researchRetryButton = researchDialog.querySelector(".qap-research-retry");
   const researchContent = researchDialog.querySelector(".qap-research-content");
   const researchZoomLevel = researchDialog.querySelector(".qap-research-zoom-level");
   const researchZoomOut = researchDialog.querySelector('[data-qap-zoom="out"]');
@@ -5129,8 +5293,12 @@
     const reference = createDiagnosticReference(context);
     researchLoading.hidden = true;
     researchContent.hidden = true;
-    researchError.textContent = message + " (Reference: " + reference + ")";
+    const friendlyMessage =
+      "AI research could not complete after multiple attempts. Please try again.";
+    researchError.textContent = message || friendlyMessage;
     researchError.hidden = false;
+    researchRetryButton.hidden = false;
+    researchRetryButton.disabled = false;
     console.error("Quran Companion research diagnostic:", {
       reference,
       context,
@@ -5346,7 +5514,7 @@
       else showError(message, context, cause);
     };
 
-    if (!Number.isInteger(ayah) || ayah < 1 || ayah > totalAyahs) {
+    if (!Number.isInteger(ayah) || ayah < 0 || ayah > totalAyahs) {
       fail("The current Ayah number is invalid. Select a valid Ayah and try again.", null, "ayah-validation");
       return;
     }
@@ -5429,7 +5597,8 @@
     if (!geminiWindow) {
       if (showInApp) removeResearchListener();
       activeResearchRequestId = "";
-      fail("Gemini could not be opened because the browser blocked the popup. Allow popups for this site and try again.", null, "popup-blocked");
+      const geminiBlockedMessage = "Gemini could not be opened because the browser, an extension, or a site restriction is blocking access to gemini.google.com. Please allow pop-ups for this site, remove any blocker that is preventing gemini.google.com from opening, and try again.";
+      fail(geminiBlockedMessage, null, "popup-blocked");
       return;
     }
     if (showInApp) {
@@ -5467,6 +5636,17 @@
     }
   }
 
+  researchRetryButton.onclick = () => {
+    researchError.hidden = true;
+    researchRetryButton.hidden = true;
+    researchLoading.hidden = false;
+    researchContent.hidden = true;
+    researchProgressDetail.textContent = "Restarting the research request…";
+    researchLoading.querySelector(".qap-research-loading-label").textContent =
+      "Researching Surah " + surahName + ", Ayah " + ayah + "…";
+    startAyahResearch();
+  };
+
   researchDialogClose.onclick = closeResearchDialog;
   researchDialog.querySelector('[data-qap-zoom="out"]').onclick = () => {
     setResearchZoom(researchZoom - 0.1);
@@ -5503,7 +5683,7 @@
 
       option.value = i;
 
-      option.textContent = "Ayah " + i;
+      option.textContent = i === 0 ? "Bismillah" : "Ayah " + i;
 
       endSelect.appendChild(option);
     }
@@ -5545,7 +5725,7 @@
     if (
       !Number.isInteger(start) ||
       !Number.isInteger(end) ||
-      start < 1 ||
+      start < 0 ||
       end < start ||
       end > totalAyahs
     ) {
@@ -5563,7 +5743,7 @@
     const box = findBox(start);
 
     if (!box) {
-      showError("Ayah " + start + " could not be located.");
+      showError(getAyahLabel(start) + " could not be located.");
 
       return;
     }
@@ -5616,11 +5796,15 @@
 
     ayah = start;
 
-    $("qap-ayah").textContent = "Ayah " + ayah + " of " + totalAyahs;
+    $("qap-ayah").textContent =
+      ayah === 0 ? "Bismillah" : "Ayah " + ayah + " of " + totalAyahs;
 
     // Update main player range information.
 
-    $("qap-main-range-info").textContent = "Range: Ayah " + start + "–" + end;
+    $("qap-main-range-info").textContent =
+      "Range: " + (start === 0 ? "Bismillah" : "Ayah " + start) +
+      "–" +
+      (end === 0 ? "Bismillah" : "Ayah " + end);
 
     // Reset progress display.
 
@@ -5646,11 +5830,11 @@
     // Update range information.
 
     $("qap-range-info").textContent =
-      "Moved to Ayah " + start + ". Press Listen to start playback.";
+      "Moved to " + getAyahLabel(start) + ". Press Listen to start playback.";
 
     $("qap-range-info").classList.remove("qap-range-error");
 
-    showStatus("Moved to Ayah " + start + ". Ready to play.");
+    showStatus("Moved to " + getAyahLabel(start) + ". Ready to play.");
     startReadingAutoScroll(start, end);
 
     updatePlayButton();
