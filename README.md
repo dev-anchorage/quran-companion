@@ -69,7 +69,7 @@ This release brings together the recent player and research improvements:
 4. Open or reload a supported Dawat-e-Islami Surah translation page. The player
    appears near the lower-right corner.
 
-[![Install with Tampermonkey](https://img.shields.io/badge/Tampermonkey-Install%20Quran%20Companion-green?logo=tampermonkey)](https://raw.githubusercontent.com/examlycbt-offline/quran-companion/main/quran-companion.user.js)
+[![Install with Tampermonkey](https://img.shields.io/badge/Tampermonkey-Install%20Quran%20Companion-green?logo=tampermonkey)](https://raw.githubusercontent.com/dev-anchorage/quran-companion/main/quran-companion.user.js)
 
 If the button displays source code instead, install manually:
 
@@ -262,10 +262,10 @@ replace the script with the latest
 After publishing a release, update `@version` and the **Current version** and
 release notes in this README, then push both files to `main`.
 
-Repository: <https://github.com/examlycbt-offline/quran-companion>
+Repository: <https://github.com/dev-anchorage/quran-companion>
 ## Author
 
-* **Nayab Ak** - *Lead Developer* - [@examlycbt-offline](https://github.com)
+* **Nayab Ak** - *Lead Developer* - [@dev-anchorage](https://github.com)
 
 ## Acknowledgements
 
